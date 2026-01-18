@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-3">
+    <!-- Quick Actions -->
+    <div class="col-12">
+        <div class="d-grid gap-2">
+            <a href="{{ url_for('checkout') }}" class="btn btn-primary btn-lg p-3 shadow-sm">
+                <i class="bi bi-cart-plus me-2"></i> Issue Items to Teacher
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="col-6">
+        <div class="card h-100 text-center p-3 text-bg-light">
+            <h5 class="text-muted">Total Issues</h5>
+            <h2 class="fw-bold">{{ stats.total_issues }}</h2>
+        </div>
+    </div>
+    <div class="col-6">
+        <div class="card h-100 text-center p-3 text-bg-light">
+            <h5 class="text-muted">Items Given</h5>
+            <h2 class="fw-bold">{{ stats.total_items_issued }}</h2>
+        </div>
+    </div>
+
+    <!-- Management Links -->
+    <div class="col-12 mt-3">
+        <h6 class="text-uppercase text-muted small fw-bold">Management</h6>
+        <div class="list-group">
+            <a href="{{ url_for('labels') }}"
+                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div><i class="bi bi-printer me-2"></i> Print Labels</div>
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="{{ url_for('reports') }}"
+                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div><i class="bi bi-file-earmark-bar-graph me-2"></i> Reports & Export</div>
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            <a href="{{ url_for('departments') }}"
+                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div><i class="bi bi-buildings me-2"></i> Departments</div>
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

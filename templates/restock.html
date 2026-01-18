@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <div class="card">
+            <div class="card-header bg-success text-white">Stock Adjustment</div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>Search Item</label>
+                        <input type="text" class="form-control" name="q" hx-get="/hx/items/search"
+                            hx-target="#restock-results" hx-trigger="keyup delay:300ms">
+                        <div id="restock-results" class="list-group mt-2"></div>
+                    </div>
+                    <!-- Manual ID input if needed, usually population by JS from search -->
+                    <div class="mb-3">
+                        <label>Item ID</label>
+                        <input type="number" name="item_id" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Qty to Add</label>
+                        <input type="number" name="qty" class="form-control" required>
+                    </div>
+                    <button class="btn btn-success w-100">Add Stock</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center">
+    <h4 class="mb-3">Remote Scanner</h4>
+
+    <div id="scanner-container" class="mb-3 mx-auto shadow">
+        <div id="reader"></div>
+    </div>
+
+    <div class="alert alert-secondary mb-3">
+        Pairing Code: <strong class="fs-4">{{ code }}</strong>
+    </div>
+
+    <div class="d-grid">
+        <span id="connection-status" class="badge bg-secondary mb-2">Connecting...</span>
+        <div class="small text-muted" id="last-scan">Ready to scan</div>
+    </div>
+</div>
+
+<!-- HTML5-QRCODE Library -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='scanner.js') }}"></script>
+<script>
+    const socket = io();
+    document.addEventListener('DOMContentLoaded', () => {
+        initScanner(socket, "{{ code }}");
+    });
+</script>
+{% endblock %}

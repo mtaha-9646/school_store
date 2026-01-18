@@ -1,0 +1,7 @@
+{% for teacher in teachers %}
+<button type="button" class="list-group-item list-group-item-action" onclick="document.getElementById('selected-teacher-id').value='{{ teacher.id }}'; 
+                 document.getElementById('teacher-display').innerText='Selected: {{ teacher.name }} ({{ teacher.department.name }})'; 
+                 document.getElementById('teacher-results').innerHTML=''">
+    {{ teacher.name }} <span class="badge bg-light text-dark">{{ teacher.department.name }}</span>
+</button>
+{% endfor %}

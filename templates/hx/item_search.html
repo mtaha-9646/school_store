@@ -1,0 +1,26 @@
+{% for item in items %}
+<div class="list-group-item d-flex justify-content-between align-items-center animate-fade">
+    <div class="d-flex align-items-center">
+        {% if item.stock_on_hand <= item.reorder_level %} <span class="dot bg-danger rounded-circle me-2"
+            style="width:10px; height:10px;"></span>
+            {% endif %}
+            <div>
+                <div class="fw-bold">{{ item.name }}</div>
+                <div class="small text-muted">SKU: {{ item.sku }} | Rack: {{ item.stock_on_hand }}</div>
+            </div>
+    </div>
+    <div>
+        <form hx-post="/hx/cart/add" hx-trigger="click" class="m-0">
+            <input type="hidden" name="item_id" value="{{ item.id }}">
+            <input type="hidden" name="qty" value="1">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="this.form.requestSubmit()">
+                Add
+            </button>
+        </form>
+    </div>
+</div>
+{% else %}
+{% if request.args.get('q') %}
+<div class="p-3 text-center text-muted">No items found matching query.</div>
+{% endif %}
+{% endfor %}

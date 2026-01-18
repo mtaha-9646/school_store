@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row g-3" id="checkout-container">
+    <!-- Scanner Pairing Status -->
+    <div class="col-12">
+        <div class="alert alert-info py-2 d-flex justify-content-between align-items-center mb-0"
+            hx-get="/hx/scan/pull?code={{ pairing_code }}" hx-trigger="every 1s">
+            <div class="small">
+                <i class="bi bi-phone me-1"></i> Phone Scanner
+            </div>
+            <div class="fw-bold font-monospace bg-white text-info px-2 rounded">
+                CODE: {{ pairing_code }}
+            </div>
+            <div id="scan-connection-indicator">
+                <span class="badge bg-secondary">Waiting...</span>
+            </div>
+        </div>
+        <div class="text-center mt-1">
+            <a href="{{ url_for('scan_page', code=pairing_code) }}" target="_blank"
+                class="small text-muted text-decoration-underline">
+                Open Scanner here (if testing on same device)
+            </a>
+        </div>
+    </div>
+
+    <!-- Search Box -->
+    <div class="col-12">
+        <input type="text" id="item-search" class="form-control form-control-lg border-primary shadow-sm"
+            placeholder="Scan barcode or search name..." name="q" inputmode="text" autofocus hx-get="/hx/items/search"
+            hx-trigger="keyup changed delay:300ms, searchUpdate from:body" hx-target="#search-results">
+    </div>
+
+    <!-- Results Area -->
+    <div class="col-12">
+        <div id="search-results" class="list-group"></div>
+    </div>
+
+    <!-- Cart -->
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white d-flex justify-content-between">
+                <span><i class="bi bi-cart-check me-2"></i>Items to Issue</span>
+                <span id="cart-count badge bg-white text-primary"></span>
+            </div>
+            <div id="cart-contents" hx-get="/hx/cart/view" hx-trigger="load, cartUpdated from:body">
+                <div class="p-3 text-center">Loading...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SocketIO for Laptop Receive -->
+<script>
+    const socket = io();
+    const pairingCode = "{{ pairing_code }}";
+
+    socket.emit('join_pairing', pairingCode);
+
+    socket.on('barcode_to_laptop', function (data) {
+        let input = document.getElementById('item-search');
+        input.value = data.barcode;
+
+        // Trigger HTMX search
+        htmx.trigger(input, 'searchUpdate');
+
+        // Visual feedback
+        input.classList.add('bg-warning');
+        setTimeout(() => input.classList.remove('bg-warning'), 300);
+    });
+</script>
+{% endblock %}

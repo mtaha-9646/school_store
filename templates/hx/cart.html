@@ -1,0 +1,68 @@
+<div class="p-0">
+    {% if cart_items %}
+    <table class="table table-striped mb-0">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th width="80">Qty</th>
+                <th width="40"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cart_items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>
+                    <input type="number" class="form-control form-control-sm text-center" value="{{ item.qty }}" min="1"
+                        hx-post="/hx/cart/update" hx-vals='{"item_id": {{ item.id }}}' name="qty" hx-trigger="change">
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-link text-danger" hx-post="/hx/cart/remove"
+                        hx-vals='{"item_id": {{ item.id }}}'>
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="p-3 border-top bg-light">
+        <form action="{{ url_for('checkout_complete') }}" method="POST" id="issue-form">
+            <div class="mb-3">
+                <label class="form-label fw-bold">Select Teacher</label>
+                <input type="text" class="form-control mb-1" placeholder="Search teacher..."
+                    hx-get="/hx/teachers/search" hx-trigger="keyup changed delay:300ms" hx-target="#teacher-results">
+
+                <div id="teacher-results" class="list-group position-relative mb-2"></div>
+
+                <input type="hidden" name="teacher_id" id="selected-teacher-id" required>
+                <div id="teacher-display" class="form-text fw-bold text-success"></div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold d-flex justify-content-between">
+                    <span>Signature (Required)</span>
+                    <small><button type="button" class="btn btn-link py-0 text-decoration-none"
+                            id="clear-sig">Clear</button></small>
+                </label>
+                <div class="signature-wrapper">
+                    <canvas id="signature-pad"></canvas>
+                </div>
+                <input type="hidden" name="signature_data" id="signature-data" required>
+                <div class="form-text small text-muted">Teacher must sign above to acknowledge receipt.</div>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100 btn-lg fw-bold py-3">
+                Complete Issue <i class="bi bi-check-lg ms-2"></i>
+            </button>
+        </form>
+    </div>
+    <script src="{{ url_for('static', filename='signature.js') }}"></script>
+    {% else %}
+    <div class="text-center p-4 text-muted">
+        <i class="bi bi-basket display-6 d-block mb-3"></i>
+        Scan items to begin issuance
+    </div>
+    {% endif %}
+</div>
