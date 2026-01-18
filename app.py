@@ -16,8 +16,12 @@ from services.reports import get_stats
 from services.barcodes import get_barcode_path, generate_barcode_value
 from services.pairing import create_pairing_code, active_pairings
 
+from api_deploy import deploy_bp
+
 app = Flask(__name__)
 app.config.from_object(Config)
+
+app.register_blueprint(deploy_bp)
 
 db.init_app(app)
 socketio = SocketIO(app, cors_allowed_origins="*")

@@ -26,12 +26,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Trigger PythonAnywhere Deployment
-        # This step usually requires setting up a webhook or using the PA API.
-        # Since we don't have the User's API token, we'll output instructions.
+      - name: Trigger Webhook Deployment
+        if: success()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }} # e.g. https://your-app.pythonanywhere.com
+          DEPLOY_SECRET: ${{ secrets.DEPLOY_SECRET }}
         run: |
-          echo "To automate full deployment:"
-          echo "1. Set up a 'Push' webhook on PythonAnywhere pointing to your repo."
-          echo "OR"
-          echo "2. Use a GitHub Action that calls the PythonAnywhere API to run 'git pull'."
-          echo "For now, this action validates the build."
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "DEPLOY_HOST secret not set. Skipping webhook trigger."
+          else
+            echo "Triggering deployment at $DEPLOY_HOST..."
+            curl -X POST "$DEPLOY_HOST/api/deploy_trigger" \
+              -H "X-Deploy-Secret: $DEPLOY_SECRET" \
+              --fail
+          fi
