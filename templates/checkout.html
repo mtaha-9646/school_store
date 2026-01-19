@@ -52,7 +52,10 @@
 
 <!-- SocketIO for Laptop Receive -->
 <script>
-    const socket = io();
+    const socket = io({
+        transports: ['polling'],
+        upgrade: false
+    });
     const pairingCode = "{{ pairing_code }}";
 
     socket.emit('join_pairing', pairingCode);

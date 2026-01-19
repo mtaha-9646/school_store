@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Add New Item</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Item Name</label>
+                        <input type="text" name="name" class="form-control" required autofocus>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">SKU (Unique)</label>
+                            <input type="text" name="sku" class="form-control" required placeholder="e.g. ITEM-001">
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">Opening Stock</label>
+                            <input type="number" name="stock_on_hand" class="form-control" value="0" min="0">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Barcode (Optional)</label>
+                        <input type="text" name="barcode" class="form-control"
+                            placeholder="Leave empty to auto-generate">
+                        <div class="form-text">If left empty, a barcode will be created sequentially.</div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Create Item</button>
+                        <a href="{{ url_for('inventory') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

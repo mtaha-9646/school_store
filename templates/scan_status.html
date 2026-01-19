@@ -22,7 +22,10 @@
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='scanner.js') }}"></script>
 <script>
-    const socket = io();
+    const socket = io({
+        transports: ['polling'],
+        upgrade: false
+    });
     document.addEventListener('DOMContentLoaded', () => {
         initScanner(socket, "{{ code }}");
     });

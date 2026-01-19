@@ -24,7 +24,8 @@ app.config.from_object(Config)
 app.register_blueprint(deploy_bp)
 
 db.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# PythonAnywhere does not support WebSockets; force threading/polling fallback
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # --- Startup ---
 with app.app_context():
@@ -138,15 +139,52 @@ def item_detail(item_id):
     item = Item.query.get_or_404(item_id)
     return render_template('item_detail.html', item=item)
 
+@app.route('/items/new', methods=['GET', 'POST'])
+def item_new():
+    if request.method == 'POST':
+        try:
+            name = request.form['name']
+            sku = request.form['sku']
+            stock = int(request.form.get('stock_on_hand', 0))
+            barcode_val = request.form.get('barcode', '').strip() or None
+            
+            # Auto-generate if empty
+            if not barcode_val:
+                barcode_val = generate_barcode_value()
+                
+            item = Item(name=name, sku=sku, stock_on_hand=stock, barcode=barcode_val)
+            db.session.add(item)
+            db.session.commit()
+            
+            # Log initial stock
+            if stock > 0:
+                adjust_stock(item.id, stock, "ADJUST", note="Initial Stock", user_id=session.get('user_id'))
+                db.session.commit()
+                
+            flash(f"Item '{name}' created.", "success")
+            return redirect(url_for('inventory'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error creating item: {str(e)}", "danger")
+            
+    return render_template('item_new.html')
+
 @app.route('/items/<int:item_id>/barcode.png')
 def get_barcode_image(item_id):
     item = Item.query.get_or_404(item_id)
+    
+    # Ensure folder exists (PythonAnywhere filesystem safety)
+    os.makedirs(os.path.join(app.instance_path, 'barcodes'), exist_ok=True)
+    
     if not item.barcode:
         item.barcode = generate_barcode_value()
         db.session.commit()
     
-    path = get_barcode_path(item.barcode, app.instance_path)
-    return send_file(path, mimetype='image/png')
+    try:
+        path = get_barcode_path(item.barcode, app.instance_path)
+        return send_file(path, mimetype='image/png')
+    except Exception as e:
+        return f"Error creating barcode: {e}", 500
 
 @app.route('/labels', methods=['GET', 'POST'])
 def labels():
