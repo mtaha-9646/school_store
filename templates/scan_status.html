@@ -1,33 +1,239 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="text-center">
-    <h4 class="mb-3">Remote Scanner</h4>
-
-    <div id="scanner-container" class="mb-3 mx-auto shadow">
-        <div id="reader"></div>
+<div class="container py-2">
+    <!-- Header -->
+    <div class="card shadow border-0 mb-3 bg-primary text-white">
+        <div class="card-body p-2 text-center d-flex justify-content-between align-items-center">
+            <div>
+                <small class="d-block opacity-75">SESSION</small>
+                <strong class="font-monospace">{{ code }}</strong>
+            </div>
+            <div id="connection-status"><span class="badge bg-warning text-dark">Connecting...</span></div>
+        </div>
     </div>
 
-    <div class="alert alert-secondary mb-3">
-        Pairing Code: <strong class="fs-4">{{ code }}</strong>
-    </div>
+    <!-- Navigation -->
+    <ul class="nav nav-pills nav-fill mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="pills-scan-tab" data-bs-toggle="pill" data-bs-target="#pills-scan"
+                type="button"><i class="bi bi-upc-scan me-2"></i>Scan Item</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="pills-sign-tab" data-bs-toggle="pill" data-bs-target="#pills-sign"
+                type="button"><i class="bi bi-cart-check me-2"></i>Checkout</button>
+        </li>
+    </ul>
 
-    <div class="d-grid">
-        <span id="connection-status" class="badge bg-secondary mb-2">Connecting...</span>
-        <div class="small text-muted" id="last-scan">Ready to scan</div>
+    <div class="tab-content" id="pills-tabContent">
+        <!-- SCANNER TAB -->
+        <div class="tab-pane fade show active" id="pills-scan">
+            <div id="scanner-container" class="mb-3 mx-auto shadow rounded overflow-hidden bg-black"
+                style="max-width: 400px; min-height: 250px;">
+                <div id="reader"></div>
+            </div>
+            <p class="text-center text-muted small">Scan an item to add it to the desktop cart.</p>
+        </div>
+
+        <!-- CHECKOUT TAB -->
+        <div class="tab-pane fade" id="pills-sign">
+            <div class="card shadow border-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-4 text-center">Finalize Transaction</h5>
+
+                    <!-- 1. Select Teacher -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Issue To (Teacher)</label>
+                        <select class="form-select form-select-lg" id="mobile-teacher-select">
+                            <option value="" disabled selected>Select Teacher...</option>
+                            {% for teacher in teachers %}
+                            <option value="{{ teacher.id }}">{{ teacher.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- 2. Signature -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Signature</label>
+                        <div class="border rounded bg-light" style="width: 100%; height: 200px; position: relative;">
+                            <canvas id="signature-pad" style="width: 100%; height: 100%; touch-action: none;"></canvas>
+                            <div class="position-absolute bottom-0 start-0 m-2 text-muted small user-select-none opacity-50"
+                                style="pointer-events: none;">Sign Here</div>
+                        </div>
+                        <div class="text-end mt-1">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearSignature()">Clear</button>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-success btn-lg w-100 py-3 fw-bold shadow" onclick="approveTx()">
+                        <i class="bi bi-check-lg me-2"></i>COMPLETE CHECKOUT
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- HTML5-QRCODE Library -->
+<!-- Quantity Modal (Mobile) -->
+<div class="modal fade" id="mobQtyModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2 bg-dark text-white">
+                <h6 class="modal-title text-truncate" id="mob-item-name">Item Name</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    onclick="resumeScanning()"></button>
+            </div>
+            <div class="modal-body text-center">
+                <input type="hidden" id="mob-item-id">
+                <div class="mb-3">
+                    <span class="badge bg-light text-dark border">Stock: <span id="mob-item-stock">0</span></span>
+                </div>
+                <div class="input-group input-group-lg justify-content-center">
+                    <button class="btn btn-outline-secondary" onclick="adjMobQty(-1)">-</button>
+                    <input type="number" id="mob-item-qty" class="form-control text-center" value="1" min="1"
+                        style="max-width: 80px;">
+                    <button class="btn btn-outline-secondary" onclick="adjMobQty(1)">+</button>
+                </div>
+            </div>
+            <div class="modal-footer p-2">
+                <button type="button" class="btn btn-primary w-100 py-2" onclick="confirmMobAdd()">Add to Cart</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-<script src="{{ url_for('static', filename='scanner.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<!-- Inline scanner logic specialized for this view -->
 <script>
-    const socket = io({
-        transports: ['polling'],
-        upgrade: false
+    const socket = io({ transports: ['polling'], upgrade: false });
+    const CODE = "{{ code }}";
+    let html5QrcodeScanner = null;
+    let isScanning = true;
+
+    // --- Connectivity ---
+    socket.on('connect', () => {
+        document.getElementById('connection-status').innerHTML = '<span class="badge bg-light text-success fw-bold">Connected</span>';
+        socket.emit('join_pairing', CODE);
     });
+
+    // --- Scanner Logic ---
+    function onScanSuccess(decodedText, decodedResult) {
+        if (!isScanning) return;
+
+        // Pause scanning while we ask for quantity
+        isScanning = false;
+        if (html5QrcodeScanner) html5QrcodeScanner.pause();
+
+        console.log(`Scan: ${decodedText}`);
+
+        // 1. Emit Check
+        socket.emit('get_item_details', { code: CODE, barcode: decodedText });
+    }
+
+    // Response from server about scanned item
+    socket.on('item_details', (data) => {
+        if (data.found) {
+            // Show Qty Modal
+            document.getElementById('mob-item-id').value = data.id;
+            document.getElementById('mob-item-name').innerText = data.name;
+            document.getElementById('mob-item-stock').innerText = data.stock;
+            document.getElementById('mob-item-qty').value = 1;
+
+            const modal = new bootstrap.Modal(document.getElementById('mobQtyModal'));
+            modal.show();
+        } else {
+            alert("Item not found or invalid barcode.");
+            resumeScanning();
+        }
+    });
+
+    function adjMobQty(delta) {
+        const el = document.getElementById('mob-item-qty');
+        let v = parseInt(el.value) || 0;
+        v += delta;
+        if (v < 1) v = 1;
+        el.value = v;
+    }
+
+    function confirmMobAdd() {
+        const id = document.getElementById('mob-item-id').value;
+        const qty = parseInt(document.getElementById('mob-item-qty').value);
+
+        // Emit Add
+        socket.emit('mobile_add_item', {
+            code: CODE,
+            item_id: id,
+            qty: qty
+        });
+
+        // Hide and Resume
+        bootstrap.Modal.getInstance(document.getElementById('mobQtyModal')).hide();
+        resumeScanning();
+
+        // Optional Feedback
+        // alert("Added!");
+    }
+
+    function resumeScanning() {
+        isScanning = true;
+        if (html5QrcodeScanner) {
+            try { html5QrcodeScanner.resume(); } catch (e) { }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        initScanner(socket, "{{ code }}");
+        // Init Scanner
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess);
+
+        initSignaturePad();
     });
+
+    // --- Signature ---
+    let signaturePad;
+    function initSignaturePad() {
+        const canvas = document.getElementById('signature-pad');
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+        }
+        window.onresize = resizeCanvas;
+        resizeCanvas();
+        signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgba(255, 255, 255, 0)' });
+    }
+
+    function clearSignature() { signaturePad.clear(); }
+
+    // --- Checkout ---
+    function approveTx() {
+        const teacherId = document.getElementById('mobile-teacher-select').value;
+
+        if (!teacherId) {
+            alert("Please select a teacher.");
+            return;
+        }
+        if (signaturePad.isEmpty()) {
+            alert("Please provide a signature.");
+            return;
+        }
+
+        if (confirm("Complete checkout?")) {
+            const dataArg = signaturePad.toDataURL();
+
+            socket.emit('mobile_approve_tx', {
+                code: CODE,
+                signature: dataArg,
+                teacher_id: teacherId
+            });
+
+            alert("Sent! Desktop is processing.");
+            // Maybe clear fields or show success state
+            signaturePad.clear();
+        }
+    }
 </script>
 {% endblock %}

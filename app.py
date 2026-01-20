@@ -31,34 +31,37 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 with app.app_context():
     os.makedirs(os.path.join(app.instance_path, 'signatures'), exist_ok=True)
     os.makedirs(os.path.join(app.instance_path, 'barcodes'), exist_ok=True)
-    db.create_all()
     
-    # Seeds
-    if not User.query.first():
-        db.session.add(User(name="Admin", role="admin"))
-        
-        # Depts
-        math = Department(name="Math")
-        sci = Department(name="Science")
-        eng = Department(name="English")
-        db.session.add_all([math, sci, eng])
-        db.session.commit() # Commit to get IDs
-        
-        # Teachers
-        db.session.add_all([
-            Teacher(name="Mr. Anderson", department_id=math.id),
-            Teacher(name="Ms. Frizzle", department_id=sci.id),
-            Teacher(name="Mr. Keating", department_id=eng.id)
-        ])
-        
-        # Items
-        db.session.add_all([
-            Item(name="Whiteboard Marker (Red)", sku="WBM-R", stock_on_hand=50, barcode="SS-100001"),
-            Item(name="A4 Paper Ream", sku="PPR-A4", stock_on_hand=100, barcode="SS-100002"),
-            Item(name="Stapler", sku="STP-01", stock_on_hand=10, barcode="SS-100003")
-        ])
-        db.session.commit()
-        print("Seeds Created")
+    # Skip DB init/seeding if testing (let tests handle it)
+    if not os.environ.get('FLASK_TESTING'):
+        db.create_all()
+    
+        # Seeds
+        if not User.query.first():
+            db.session.add(User(name="Admin", role="admin"))
+            
+            # Depts
+            math = Department(name="Math")
+            sci = Department(name="Science")
+            eng = Department(name="English")
+            db.session.add_all([math, sci, eng])
+            db.session.commit() # Commit to get IDs
+            
+            # Teachers
+            db.session.add_all([
+                Teacher(name="Mr. Anderson", department_id=math.id),
+                Teacher(name="Ms. Frizzle", department_id=sci.id),
+                Teacher(name="Mr. Keating", department_id=eng.id)
+            ])
+            
+            # Items
+            db.session.add_all([
+                Item(name="Whiteboard Marker (Red)", sku="WBM-R", stock_on_hand=50, barcode="SS-100001"),
+                Item(name="A4 Paper Ream", sku="PPR-A4", stock_on_hand=100, barcode="SS-100002"),
+                Item(name="Stapler", sku="STP-01", stock_on_hand=10, barcode="SS-100003")
+            ])
+            db.session.commit()
+            # print("Seeds Created")
 
 # --- Context ---
 @app.context_processor
@@ -78,14 +81,24 @@ def dashboard():
 
 @app.route('/checkout')
 def checkout():
+    # Make sure we pass items/teachers for the new UI
+    items = Item.query.filter_by(active=True).all()
+    teachers = Teacher.query.filter_by(active=True).all()
+    
     # Generate a random pairing code for this session/tab
     code = create_pairing_code()
-    return render_template('checkout.html', pairing_code=code)
+    return render_template('checkout.html', pairing_code=code, items=items, teachers=teachers)
 
 @app.route('/checkout/complete', methods=['POST'])
 def checkout_complete():
     cart = session.get('cart', {})
     teacher_id = request.form.get('teacher_id')
+    
+    # If using client-side cart (if we move to it), we'd parse it here.
+    # But for now sticking to session cart for compatibility with existing logic
+    # OR we might receive a JSON cart if we change the flow. 
+    # Let's keep using session cart for now which is populated via HTMX.
+    
     sig_data = request.form.get('signature_data')
     
     try:
@@ -106,7 +119,9 @@ def checkout_complete():
 @app.route('/scan')
 def scan_page():
     code = request.args.get('code')
-    return render_template('scan_status.html', code=code)
+    teachers = Teacher.query.filter_by(active=True).all()
+    # Pass teachers to mobile view
+    return render_template('scan_status.html', code=code, teachers=teachers)
 
 @app.route('/scan/redirect')
 def scan_redirect():
@@ -127,7 +142,9 @@ def restock():
                 flash("Stock added", "success")
         except Exception as e:
             flash(str(e), "danger")
-    return render_template('restock.html') # Using similar structure to prev
+            
+    items = Item.query.all()
+    return render_template('restock.html', items=items)
 
 @app.route('/inventory')
 def inventory():
@@ -139,20 +156,37 @@ def item_detail(item_id):
     item = Item.query.get_or_404(item_id)
     return render_template('item_detail.html', item=item)
 
+# ... (Previous imports remain, ensuring random/string are imported if needed)
+import random
+import string
+
+# Helper
+def generate_sku():
+    """Generates a unique SKU: SKU-YYYYMMDD-XXXX"""
+    date_str = datetime.now().strftime("%Y%m%d")
+    suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+    return f"SKU-{date_str}-{suffix}"
+
 @app.route('/items/new', methods=['GET', 'POST'])
 def item_new():
     if request.method == 'POST':
         try:
             name = request.form['name']
-            sku = request.form['sku']
             stock = int(request.form.get('stock_on_hand', 0))
+            
+            # SKU Logic
+            sku = request.form.get('sku', '').strip()
+            if not sku:
+                sku = generate_sku()
+                
             barcode_val = request.form.get('barcode', '').strip() or None
             
             # Auto-generate if empty
             if not barcode_val:
                 barcode_val = generate_barcode_value()
                 
-            item = Item(name=name, sku=sku, stock_on_hand=stock, barcode=barcode_val)
+            # Init with 0, then adjust to create log
+            item = Item(name=name, sku=sku, stock_on_hand=0, barcode=barcode_val)
             db.session.add(item)
             db.session.commit()
             
@@ -161,7 +195,7 @@ def item_new():
                 adjust_stock(item.id, stock, "ADJUST", note="Initial Stock", user_id=session.get('user_id'))
                 db.session.commit()
                 
-            flash(f"Item '{name}' created.", "success")
+            flash(f"Item '{name}' created. SKU: {sku}", "success")
             return redirect(url_for('inventory'))
         except Exception as e:
             db.session.rollback()
@@ -196,8 +230,22 @@ def labels():
     items = Item.query.filter_by(active=True).all()
     return render_template('labels.html', kems=items, labels=preview_items, items=items)
 
-@app.route('/teachers')
+@app.route('/teachers', methods=['GET', 'POST'])
 def teachers():
+    if request.method == 'POST':
+        try:
+            name = request.form['name']
+            email = request.form.get('email')
+            dept_id = request.form.get('department_id')
+            
+            t = Teacher(name=name, email=email, department_id=dept_id)
+            db.session.add(t)
+            db.session.commit()
+            flash(f"Teacher '{name}' added.", "success")
+        except Exception as e:
+            flash(f"Error adding teacher: {e}", "danger")
+        return redirect(url_for('teachers'))
+
     ts = Teacher.query.all()
     ds = Department.query.all()
     return render_template('teachers.html', teachers=ts, departments=ds)
@@ -283,31 +331,53 @@ def hx_scan_pull():
     """Fallback polling if socketio fails or for connection status check"""
     # code = request.args.get('code')
     # Actually just used to verify connection visually
-    return '' 
+    return ''
 
 # --- Websockets ---
 
 @socketio.on('join_pairing')
 def on_join(code):
     join_room(code)
-    # Store mapping
-    # active_pairings[code] = request.sid
-    pass
+    # emit('status', {'msg': 'Connected'}, room=code)
 
-@socketio.on('barcode_scanned')
-def on_scan(data):
+@socketio.on('get_item_details')
+def on_get_item(data):
+    # Mobile scans barcode, wants details to show "Add Qty" screen
     code = data.get('code')
     barcode = data.get('barcode')
-    print(f"Received scan {barcode} for {code}")
-    # Broadcast to room (the laptop)
-    emit('barcode_to_laptop', {'barcode': barcode}, room=code)
+    item = Item.query.filter_by(barcode=barcode).first()
+    if item:
+        emit('item_details', {
+            'found': True,
+            'id': item.id,
+            'name': item.name,
+            'stock': item.stock_on_hand
+        }, room=code) # Reply to room (or just request.sid but room is fine)
+    else:
+        emit('item_details', {'found': False}, room=code)
+
+@socketio.on('mobile_add_item')
+def on_mobile_add(data):
+    # Mobile said "Add 5x Item A"
+    # We relay this to the Desktop to perform the Session update
+    code = data.get('code')
+    emit('trigger_add_to_cart', data, room=code)
+
+@socketio.on('mobile_approve_tx')
+def on_mobile_approve(data):
+    code = data.get('code')
+    sig = data.get('signature')
+    tid = data.get('teacher_id')
+    print(f"Mobile approved tx for {code} teacher={tid}")
+    # Tell Desktop to submit the form, pass the signature AND teacher
+    emit('trigger_checkout_submission', {'signature': sig, 'teacher_id': tid}, room=code)
 
 if __name__ == '__main__':
+    # ... (Keep existing startup)
     import socket
     def get_ip():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            # doesn't even have to be reachable
             s.connect(('10.255.255.255', 1))
             IP = s.getsockname()[0]
         except Exception:
@@ -321,3 +391,4 @@ if __name__ == '__main__':
     
     # Use socketio.run instead of app.run
     socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
+

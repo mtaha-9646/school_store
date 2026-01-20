@@ -28,6 +28,7 @@ class Teacher(db.Model):
     name = db.Column(db.String(100), nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
     active = db.Column(db.Boolean, default=True)
+    email = db.Column(db.String(120), nullable=True)
     signature_path = db.Column(db.String(255), nullable=True) # Reference signature
 
     department = db.relationship('Department', backref='teachers')

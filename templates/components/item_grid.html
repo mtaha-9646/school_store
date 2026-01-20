@@ -1,0 +1,57 @@
+{% macro render_item_grid(items, mode='checkout') %}
+{# mode: 'checkout' or 'restock' #}
+<div class="row g-3" id="item-grid">
+    <div class="col-12">
+        <input type="text" id="grid-search" class="form-control form-control-lg" placeholder="Search items..."
+            onkeyup="filterGrid()">
+    </div>
+
+    {% for item in items %}
+    <div class="col-6 col-md-4 col-lg-3 item-card-wrapper" data-name="{{ item.name|lower }}"
+        data-sku="{{ item.sku|lower }}" data-barcode="{{ item.barcode }}">
+        <div class="card h-100 shadow-sm item-card border-0" style="cursor: pointer; transition: transform 0.2s;"
+            onclick="selectItem('{{ item.id }}', '{{ item.name }}', {{ item.stock_on_hand }})">
+            <div class="card-body text-center d-flex flex-column">
+                <div class="mb-2 text-primary">
+                    <i class="bi bi-box-seam display-4"></i>
+                </div>
+                <h6 class="card-title text-truncate fw-bold mb-1" title="{{ item.name }}">{{ item.name }}</h6>
+                <small class="text-muted mb-2">{{ item.sku }}</small>
+
+                <div class="mt-auto">
+                    {% if item.stock_on_hand > item.reorder_level %}
+                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
+                        Stock: {{ item.stock_on_hand }}
+                    </span>
+                    {% else %}
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">
+                        Low Stock: {{ item.stock_on_hand }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    function filterGrid() {
+        const input = document.getElementById('grid-search');
+        const filter = input.value.toLowerCase();
+        const cards = document.getElementsByClassName('item-card-wrapper');
+
+        for (let i = 0; i < cards.length; i++) {
+            const name = cards[i].getAttribute('data-name');
+            const sku = cards[i].getAttribute('data-sku');
+            const barcode = cards[i].getAttribute('data-barcode') || "";
+
+            if (name.includes(filter) || sku.includes(filter) || barcode.includes(filter)) {
+                cards[i].classList.remove('d-none');
+            } else {
+                cards[i].classList.add('d-none');
+            }
+        }
+    }
+</script>
+{% endmacro %}

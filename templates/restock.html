@@ -1,31 +1,49 @@
 {% extends "base.html" %}
+{% from "components/item_grid.html" import render_item_grid %}
 
 {% block content %}
 <div class="row">
-    <div class="col-md-6 offset-md-3">
-        <div class="card">
-            <div class="card-header bg-success text-white">Stock Adjustment</div>
-            <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label>Search Item</label>
-                        <input type="text" class="form-control" name="q" hx-get="/hx/items/search"
-                            hx-target="#restock-results" hx-trigger="keyup delay:300ms">
-                        <div id="restock-results" class="list-group mt-2"></div>
-                    </div>
-                    <!-- Manual ID input if needed, usually population by JS from search -->
-                    <div class="mb-3">
-                        <label>Item ID</label>
-                        <input type="number" name="item_id" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label>Qty to Add</label>
-                        <input type="number" name="qty" class="form-control" required>
-                    </div>
-                    <button class="btn btn-success w-100">Add Stock</button>
-                </form>
+    <div class="col-12 mb-3">
+        <h3 class="mb-3"><i class="bi bi-box-seam me-2"></i>Restock Inventory</h3>
+        <!-- Reuse the grid -->
+        {{ render_item_grid(items, mode='restock') }}
+    </div>
+</div>
+
+<!-- Restock Modal -->
+<div class="modal fade" id="restockModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Add Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="item_id" id="modal-item-id">
+                    <h4 id="modal-item-name" class="mb-3"></h4>
+
+                    <div class="mb-3">
+                        <label>Quantity to Add</label>
+                        <input type="number" name="qty" class="form-control form-control-lg" value="1" min="1" required
+                            autofocus>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Add Stock</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
+
+<script>
+    function selectItem(id, name, currentStock) {
+        document.getElementById('modal-item-id').value = id;
+        document.getElementById('modal-item-name').innerText = name;
+        var myModal = new bootstrap.Modal(document.getElementById('restockModal'));
+        myModal.show();
+    }
+</script>
 {% endblock %}
