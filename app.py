@@ -24,7 +24,7 @@ app.config.from_object(Config)
 app.register_blueprint(deploy_bp)
 
 db.init_app(app)
-# PythonAnywhere does not support WebSockets; force threading/polling fallback
+# Use threading for PythonAnywhere compatibility (no gevent/eventlet on basic plans usually)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # --- Startup ---
@@ -81,26 +81,21 @@ def dashboard():
 
 @app.route('/checkout')
 def checkout():
-    # Make sure we pass items/teachers for the new UI
+    # Mobile App View
     items = Item.query.filter_by(active=True).all()
     teachers = Teacher.query.filter_by(active=True).all()
-    
-    # Generate a random pairing code for this session/tab
-    code = create_pairing_code()
-    return render_template('checkout.html', pairing_code=code, items=items, teachers=teachers)
+    return render_template('checkout.html', items=items, teachers=teachers)
 
 @app.route('/checkout/complete', methods=['POST'])
 def checkout_complete():
     cart = session.get('cart', {})
     teacher_id = request.form.get('teacher_id')
-    
-    # If using client-side cart (if we move to it), we'd parse it here.
-    # But for now sticking to session cart for compatibility with existing logic
-    # OR we might receive a JSON cart if we change the flow. 
-    # Let's keep using session cart for now which is populated via HTMX.
-    
     sig_data = request.form.get('signature_data')
     
+    if not cart:
+        flash("Cart is empty!", "warning")
+        return redirect(url_for('checkout'))
+
     try:
         process_issue(
             user_id=session.get('user_id'),
@@ -110,24 +105,11 @@ def checkout_complete():
             instance_path=app.instance_path
         )
         session.pop('cart', None)
-        flash("Items issued successfully", "success")
+        flash("Transaction Completed Successfully", "success")
         return redirect(url_for('dashboard'))
     except Exception as e:
         flash(f"Error: {e}", "danger")
         return redirect(url_for('checkout'))
-
-@app.route('/scan')
-def scan_page():
-    code = request.args.get('code')
-    teachers = Teacher.query.filter_by(active=True).all()
-    # Pass teachers to mobile view
-    return render_template('scan_status.html', code=code, teachers=teachers)
-
-@app.route('/scan/redirect')
-def scan_redirect():
-    # From QR code? 
-    # Logic: QR code is /scan?code=1234
-    pass
 
 @app.route('/restock', methods=['GET', 'POST'])
 def restock():
@@ -174,23 +156,23 @@ def item_new():
             name = request.form['name']
             stock = int(request.form.get('stock_on_hand', 0))
             
-            # SKU Logic
+            # SKU Logic: Auto-generate if empty
             sku = request.form.get('sku', '').strip()
             if not sku:
                 sku = generate_sku()
                 
             barcode_val = request.form.get('barcode', '').strip() or None
             
-            # Auto-generate if empty
+            # Auto-generate barcode value if empty
             if not barcode_val:
                 barcode_val = generate_barcode_value()
                 
-            # Init with 0, then adjust to create log
+            # Create Item
             item = Item(name=name, sku=sku, stock_on_hand=0, barcode=barcode_val)
             db.session.add(item)
             db.session.commit()
             
-            # Log initial stock
+            # Log initial stock if > 0
             if stock > 0:
                 adjust_stock(item.id, stock, "ADJUST", note="Initial Stock", user_id=session.get('user_id'))
                 db.session.commit()
@@ -277,6 +259,12 @@ def hx_item_search():
         
     return render_template('hx/item_search.html', items=items)
 
+@app.route('/hx/cart/count')
+def hx_cart_count():
+    cart = session.get('cart', {})
+    count = sum(cart.values())
+    return str(count)
+
 @app.route('/hx/teachers/search')
 def hx_teacher_search():
     q = request.args.get('q', '').strip()
@@ -334,43 +322,9 @@ def hx_scan_pull():
     return ''
 
 # --- Websockets ---
-
-@socketio.on('join_pairing')
-def on_join(code):
-    join_room(code)
-    # emit('status', {'msg': 'Connected'}, room=code)
-
-@socketio.on('get_item_details')
-def on_get_item(data):
-    # Mobile scans barcode, wants details to show "Add Qty" screen
-    code = data.get('code')
-    barcode = data.get('barcode')
-    item = Item.query.filter_by(barcode=barcode).first()
-    if item:
-        emit('item_details', {
-            'found': True,
-            'id': item.id,
-            'name': item.name,
-            'stock': item.stock_on_hand
-        }, room=code) # Reply to room (or just request.sid but room is fine)
-    else:
-        emit('item_details', {'found': False}, room=code)
-
-@socketio.on('mobile_add_item')
-def on_mobile_add(data):
-    # Mobile said "Add 5x Item A"
-    # We relay this to the Desktop to perform the Session update
-    code = data.get('code')
-    emit('trigger_add_to_cart', data, room=code)
-
-@socketio.on('mobile_approve_tx')
-def on_mobile_approve(data):
-    code = data.get('code')
-    sig = data.get('signature')
-    tid = data.get('teacher_id')
-    print(f"Mobile approved tx for {code} teacher={tid}")
-    # Tell Desktop to submit the form, pass the signature AND teacher
-    emit('trigger_checkout_submission', {'signature': sig, 'teacher_id': tid}, room=code)
+# SocketIO logic removed as we moved to Direct Mobile Checkout. 
+# Keeping socketio init in case we need real-time dashboard updates later, 
+# but currently no events are used.
 
 if __name__ == '__main__':
     # ... (Keep existing startup)

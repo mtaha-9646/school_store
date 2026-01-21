@@ -2,218 +2,175 @@
 {% from "components/item_grid.html" import render_item_grid %}
 
 {% block content %}
-<div class="row h-100">
-    <!-- Full Width Item Grid -->
-    <div class="col-12 h-100 overflow-auto pb-5">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0"><i class="bi bi-grid-3x3-gap me-2"></i>Select Items</h4>
-            <button class="btn btn-primary d-md-none" data-bs-toggle="modal" data-bs-target="#checkoutModal">
-                <i class="bi bi-cart4"></i> View Cart
-            </button>
+<!-- Mobile App Container -->
+<div class="d-flex flex-column h-100 pb-5">
+
+    <!-- Sticky Tabs Header -->
+    <div class="sticky-top bg-white pt-2 pb-2 border-bottom z-1">
+        <ul class="nav nav-pills nav-fill" id="checkoutTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active fw-bold" id="shop-tab" data-bs-toggle="tab" data-bs-target="#shop-pane"
+                    type="button">
+                    <i class="bi bi-shop me-1"></i> Shop
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link fw-bold position-relative" id="review-tab" data-bs-toggle="tab"
+                    data-bs-target="#review-pane" type="button">
+                    <i class="bi bi-cart-check me-1"></i> Review
+                    <span id="tab-badge"
+                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                        hx-get="/hx/cart/count" hx-trigger="cartUpdated from:body">
+                        0
+                    </span>
+                </button>
+            </li>
+        </ul>
+
+        <!-- Search Bar (Visible on Shop Tab) -->
+        <div class="mt-2 px-2" id="search-container">
+            <input type="text" id="grid-search" class="form-control form-control-lg bg-light border-0"
+                placeholder="Search items..." onkeyup="filterGrid()">
         </div>
-        {{ render_item_grid(items, mode='checkout') }}
     </div>
-</div>
 
-<!-- Floating Checkout Button (Desktop) -->
-<div class="position-fixed bottom-0 end-0 p-4" style="z-index: 1030;">
-    <button class="btn btn-primary btn-lg rounded-pill shadow-lg fw-bold px-4 py-3" data-bs-toggle="modal"
-        data-bs-target="#checkoutModal">
-        <i class="bi bi-cart4 me-2"></i> Review & Checkout <span id="cart-badge"
-            class="badge bg-white text-primary ms-2 rounded-pill">0</span>
-    </button>
-</div>
+    <div class="tab-content flex-grow-1 overflow-auto" id="checkoutTabContent">
 
-<!-- Checkout Modal -->
-<div class="modal fade" id="checkoutModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-cart-check me-2"></i>Review Order</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <div class="row g-0 h-100">
-                    <!-- LEFT: Cart Items -->
-                    <div class="col-lg-7 border-end p-3 bg-light overflow-auto" style="min-height: 300px;">
-                        <h6 class="text-muted mb-3">Selected Items</h6>
-                        <div id="cart-contents" hx-get="/hx/cart/view" hx-trigger="load, cartUpdated from:body"
-                            hx-swap="innerHTML">
-                            <div class="text-center p-5 text-muted">
-                                <i class="bi bi-cart-x display-1 mb-3"></i><br>Cart is empty
-                            </div>
+        <!-- TAB 1: SHOP -->
+        <div class="tab-pane fade show active p-2" id="shop-pane" role="tabpanel">
+            {{ render_item_grid(items, mode='checkout') }}
+            <!-- Bottom Spacer for FAB -->
+            <div style="height: 80px;"></div>
+        </div>
+
+        <!-- TAB 2: REVIEW & SIGN -->
+        <div class="tab-pane fade p-3" id="review-pane" role="tabpanel">
+            <h5 class="mb-3">Order Summary</h5>
+
+            <!-- Items List -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body p-0">
+                    <div id="cart-contents" hx-get="/hx/cart/view" hx-trigger="load, cartUpdated from:body"
+                        hx-swap="innerHTML">
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-cart-x fs-1"></i>
+                            <p>Cart is empty</p>
                         </div>
-                    </div>
-
-                    <!-- RIGHT: Finalize Details -->
-                    <div class="col-lg-5 p-4">
-                        <h5 class="mb-3 border-bottom pb-2">Finalize Issue</h5>
-
-                        <!-- 1. Select Teacher -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">1. Select Teacher</label>
-                            <select class="form-select form-select-lg" id="teacher-select">
-                                <option value="" disabled selected>Choose Teacher...</option>
-                                {% for teacher in teachers %}
-                                <option value="{{ teacher.id }}">{{ teacher.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- 2. Mobile Sign -->
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">2. Scan to Sign</label>
-                            <div class="card bg-light border-0">
-                                <div class="card-body d-flex align-items-center">
-                                    <div class="bg-white p-1 rounded border me-3">
-                                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data={{ url_for('scan_page', code=pairing_code, _external=True) }}"
-                                            width="80" height="80">
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold fs-5 font-monospace text-primary mb-1">{{ pairing_code }}
-                                        </div>
-                                        <div id="connection-widget">
-                                            <span id="connection-badge" class="badge bg-secondary">Waiting for
-                                                Mobile...</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 3. Action -->
-                        <form id="checkout-form" action="{{ url_for('checkout_complete') }}" method="POST">
-                            <input type="hidden" name="teacher_id" id="form-teacher-id">
-                            <input type="hidden" name="signature_data" id="form-signature-data">
-
-                            <button type="button" class="btn btn-primary w-100 py-3 fw-bold fs-5" disabled
-                                id="btn-submit">
-                                <i class="bi bi-lock me-2"></i>Waiting for Signature...
-                            </button>
-                        </form>
                     </div>
                 </div>
             </div>
+
+            <form action="{{ url_for('checkout_complete') }}" method="POST" id="checkout-form"
+                onsubmit="return validateForm()">
+                <!-- Teacher Select -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Issue To (Teacher)</label>
+                    <select class="form-select form-select-lg" name="teacher_id" required>
+                        <option value="" disabled selected>Select Teacher...</option>
+                        {% for t in teachers %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Signature Helper Text -->
+                <div class="mb-1 d-flex justify-content-between">
+                    <label class="form-label fw-bold">Signature</label>
+                    <button type="button" class="btn btn-link btn-sm text-decoration-none p-0"
+                        onclick="clearSig()">Clear</button>
+                </div>
+
+                <!-- Signature Pad -->
+                <div class="border rounded bg-light mb-4" style="height: 200px;">
+                    <canvas id="sig-canvas" style="width: 100%; height: 100%; touch-action: none;"></canvas>
+                    <input type="hidden" name="signature_data" id="sig-data">
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn btn-success btn-lg w-100 py-3 fw-bold shadow">
+                    <i class="bi bi-check-circle-fill me-2"></i> COMPLETE ORDER
+                </button>
+            </form>
+
+            <!-- Bottom Spacer -->
+            <div style="height: 80px;"></div>
         </div>
     </div>
+
+    <!-- Floating FAB (Go to Review) -->
+    <div class="position-fixed bottom-0 end-0 m-3 z-3" id="fab-checkout">
+        <button class="btn btn-primary rounded-pill shadow-lg py-3 px-4 fw-bold"
+            onclick="document.getElementById('review-tab').click()">
+            Review & Sign <i class="bi bi-arrow-right ms-2"></i>
+        </button>
+    </div>
+
 </div>
 
-<!-- Quantity Selection Modal -->
+<!-- Qty Modal (Reused) -->
 <div class="modal fade" id="qtyModal" tabindex="-1">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white py-2">
-                <h6 class="modal-title" id="qty-modal-title">Add Item</h6>
+                <h6 class="modal-title text-truncate" id="qty-modal-title">Item</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body text-center">
                 <input type="hidden" id="qty-item-id">
-                <label class="form-label small text-muted">Quantity</label>
-                <div class="input-group input-group-lg">
-                    <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(-1)">-</button>
-                    <input type="number" class="form-control text-center" id="qty-input" value="1" min="1">
-                    <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(1)">+</button>
+                <p class="small text-muted mb-2" id="qty-stock-display"></p>
+                <div class="input-group input-group-lg justify-content-center">
+                    <button class="btn btn-outline-secondary" onclick="adjQty(-1)">-</button>
+                    <input type="number" id="qty-input" class="form-control text-center" value="1" min="1"
+                        style="max-width: 80px;">
+                    <button class="btn btn-outline-secondary" onclick="adjQty(1)">+</button>
                 </div>
-                <div class="text-center mt-2 small text-muted" id="qty-stock-display"></div>
             </div>
             <div class="modal-footer p-2">
-                <button type="button" class="btn btn-primary w-100" onclick="confirmAddItem()">Add to Cart</button>
+                <button class="btn btn-primary w-100" onclick="confirmAdd()">Add to Cart</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Flash Overlay for Scanned Barcode -->
-<div id="scan-overlay"
-    class="d-none position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
-    style="background: rgba(0,0,0,0.8); z-index: 2000;">
-    <div class="text-center text-white animate-pop">
-        <h1 class="display-1 fw-bold" id="scanned-value"></h1>
-        <p class="lead">Scanned</p>
-    </div>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script>
-    const socket = io({ transports: ['polling'], upgrade: false });
-    const pairingCode = "{{ pairing_code }}";
+    // --- Tabs Handling ---
+    const fab = document.getElementById('fab-checkout');
+    const searchContainer = document.getElementById('search-container');
 
-    socket.on('connect', () => {
-        socket.emit('join_pairing', pairingCode);
-    });
-
-    // 1. Barcode Scanned Logic
-    socket.on('barcode_to_laptop', (data) => {
-        // Show Overlay
-        const overlay = document.getElementById('scan-overlay');
-        document.getElementById('scanned-value').innerText = data.barcode;
-        overlay.classList.remove('d-none');
-        setTimeout(() => overlay.classList.add('d-none'), 1500);
-
-        // Search in Grid
-        document.getElementById('grid-search').value = data.barcode;
-        filterGrid();
-
-        // Status Update
-        updateStatus("Mobile Active", "bg-success");
-    });
-
-    // 2. Mobile Approval Logic (with Signature & Teacher)
-    socket.on('trigger_checkout_submission', (data) => {
-        console.log("Received approval", data);
-        if (data && data.signature) {
-            document.getElementById('form-signature-data').value = data.signature;
-
-            // If Teacher ID provided by mobile, use it
-            if (data.teacher_id) {
-                document.getElementById('teacher-select').value = data.teacher_id;
-                document.getElementById('form-teacher-id').value = data.teacher_id;
+    document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
+        tab.addEventListener('shown.bs.tab', event => {
+            if (event.target.id === 'shop-tab') {
+                fab.classList.remove('d-none');
+                searchContainer.classList.remove('d-none');
+            } else {
+                fab.classList.add('d-none');
+                searchContainer.classList.add('d-none');
+                resizeCanvas(); // Ensure canvas is sized correctly when tab becomes visible
             }
-
-            submitCheckout();
-        } else {
-            alert("Error: Signature missing from mobile approval.");
-        }
-    });
-
-    // 3. Remote Cart Add
-    socket.on('trigger_add_to_cart', (data) => {
-        // data: { item_id, qty, ... }
-        console.log("Remote add", data);
-        htmx.ajax('POST', '/hx/cart/add', {
-            values: { item_id: data.item_id, qty: data.qty },
-            target: '#cart-contents',
-            swap: 'innerHTML'
         });
-
-        // Show flash overlay
-        const overlay = document.getElementById('scan-overlay');
-        document.getElementById('scanned-value').innerHTML = `<i class="bi bi-cart-plus"></i> +${data.qty}`;
-        overlay.classList.remove('d-none');
-        setTimeout(() => overlay.classList.add('d-none'), 1000);
     });
 
-    // --- Quantity Modal Logic ---
-    var qtyModal = new bootstrap.Modal(document.getElementById('qtyModal'));
+    // --- Quantity Workflow ---
+    const qtyModal = new bootstrap.Modal(document.getElementById('qtyModal'));
 
     function selectItem(id, name, stock) {
         document.getElementById('qty-item-id').value = id;
         document.getElementById('qty-modal-title').innerText = name;
+        document.getElementById('qty-stock-display').innerText = stock + " available";
         document.getElementById('qty-input').value = 1;
-        document.getElementById('qty-stock-display').innerText = "Available: " + stock;
         qtyModal.show();
-        // Focus input
-        setTimeout(() => document.getElementById('qty-input').focus(), 500);
     }
 
-    function adjustQty(delta) {
+    function adjQty(d) {
         let el = document.getElementById('qty-input');
-        let val = parseInt(el.value) || 0;
-        val += delta;
-        if (val < 1) val = 1;
-        el.value = val;
+        let v = parseInt(el.value) || 0;
+        v += d;
+        if (v < 1) v = 1;
+        el.value = v;
     }
 
-    function confirmAddItem() {
+    function confirmAdd() {
         const id = document.getElementById('qty-item-id').value;
         const qty = document.getElementById('qty-input').value;
 
@@ -222,40 +179,48 @@
             target: '#cart-contents',
             swap: 'innerHTML'
         });
+
+        // Trigger generic update event for badge
+        document.body.dispatchEvent(new Event('cartUpdated'));
+
         qtyModal.hide();
+
+        // Optional toast?
     }
 
-    // --- Teacher & Form Logic ---
-    document.getElementById('teacher-select').addEventListener('change', function () {
-        document.getElementById('form-teacher-id').value = this.value;
-        checkValid();
-    });
+    // --- Signature ---
+    let sigPad;
+    const canvas = document.getElementById('sig-canvas');
 
-    function checkValid() {
-        const t = document.getElementById('form-teacher-id').value;
-        const btn = document.getElementById('btn-submit');
-        if (t) {
-            btn.innerText = "Waiting for Mobile Signature...";
-            updateStatus("Scan QR to Sign", "bg-warning text-dark");
-        } else {
-            btn.innerText = "Select Teacher First";
+    function initSig() {
+        sigPad = new SignaturePad(canvas, { backgroundColor: 'rgba(255,255,255,0)' });
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    }
+
+    function resizeCanvas() {
+        // When tab is hidden, offsetWidth might be 0
+        if (canvas.offsetWidth === 0) return;
+
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        if (sigPad) sigPad.clear(); // Resizing clears canvas usually
+    }
+
+    function clearSig() { if (sigPad) sigPad.clear(); }
+
+    function validateForm() {
+        if (sigPad.isEmpty()) {
+            alert("Please provide a signature.");
+            return false;
         }
+        document.getElementById('sig-data').value = sigPad.toDataURL();
+        return true;
     }
 
-    function updateStatus(msg, cls) {
-        const el = document.getElementById('connection-badge');
-        el.className = "badge " + cls;
-        el.innerText = msg;
-    }
+    document.addEventListener('DOMContentLoaded', initSig);
 
-    function submitCheckout() {
-        const t = document.getElementById('form-teacher-id').value;
-        const s = document.getElementById('form-signature-data').value;
-
-        if (!t) { alert("Please select a teacher first!"); return; }
-        if (!s) { alert("Signature missing! Please sign on mobile."); return; }
-
-        document.getElementById('checkout-form').submit();
-    }
 </script>
 {% endblock %}

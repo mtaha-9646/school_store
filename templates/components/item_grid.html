@@ -1,57 +1,89 @@
 {% macro render_item_grid(items, mode='checkout') %}
-{# mode: 'checkout' or 'restock' #}
-<div class="row g-3" id="item-grid">
-    <div class="col-12">
-        <input type="text" id="grid-search" class="form-control form-control-lg" placeholder="Search items..."
-            onkeyup="filterGrid()">
-    </div>
-
+<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3" id="item-grid">
     {% for item in items %}
-    <div class="col-6 col-md-4 col-lg-3 item-card-wrapper" data-name="{{ item.name|lower }}"
-        data-sku="{{ item.sku|lower }}" data-barcode="{{ item.barcode }}">
-        <div class="card h-100 shadow-sm item-card border-0" style="cursor: pointer; transition: transform 0.2s;"
-            onclick="selectItem('{{ item.id }}', '{{ item.name }}', {{ item.stock_on_hand }})">
-            <div class="card-body text-center d-flex flex-column">
-                <div class="mb-2 text-primary">
-                    <i class="bi bi-box-seam display-4"></i>
+    <div class="col item-card" data-search="{{ item.name.lower() }} {{ item.sku.lower() }} {{ item.barcode }}">
+        <div class="card h-100 shadow-sm border-0 item-hover-effect">
+            <div class="position-relative">
+                <div class="d-flex align-items-center justify-content-center bg-light rounded-top"
+                    style="height: 120px;">
+                    <i
+                        class="bi bi-box-seam display-4 text-{{ 'primary' if item.stock_on_hand > 10 else 'danger' }} opacity-50"></i>
                 </div>
-                <h6 class="card-title text-truncate fw-bold mb-1" title="{{ item.name }}">{{ item.name }}</h6>
-                <small class="text-muted mb-2">{{ item.sku }}</small>
+                <!-- Stock Badge -->
+                <div class="position-absolute top-0 end-0 m-2">
+                    <span
+                        class="badge bg-{{ 'success' if item.stock_on_hand > 10 else 'danger' }} rounded-pill shadow-sm">
+                        {{ item.stock_on_hand }}
+                    </span>
+                </div>
+            </div>
 
-                <div class="mt-auto">
-                    {% if item.stock_on_hand > item.reorder_level %}
-                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
-                        Stock: {{ item.stock_on_hand }}
-                    </span>
-                    {% else %}
-                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">
-                        Low Stock: {{ item.stock_on_hand }}
-                    </span>
-                    {% endif %}
-                </div>
+            <div class="card-body p-2 text-center">
+                <h6 class="card-title text-truncate mb-1 fw-bold" title="{{ item.name }}">{{ item.name }}</h6>
+                <small class="text-muted d-block mb-2 font-monospace">{{ item.sku }}</small>
+
+                {% if mode == 'checkout' %}
+                {% if item.stock_on_hand > 0 %}
+                <button class="btn btn-primary btn-sm w-100 rounded-pill"
+                    onclick="selectItem('{{ item.id }}', '{{ item.name }}', {{ item.stock_on_hand }})">
+                    <i class="bi bi-plus-lg me-1"></i>Add
+                </button>
+                {% else %}
+                <button class="btn btn-secondary btn-sm w-100 rounded-pill" disabled>Out of Stock</button>
+                {% endif %}
+                {% else %}
+                <!-- Restock Mode -->
+                <button class="btn btn-outline-primary btn-sm w-100 rounded-pill"
+                    onclick="openRestockModal('{{ item.id }}', '{{ item.name }}')">
+                    <i class="bi bi-plus-circle me-1"></i>Add Stock
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 
+<!-- Empty State (Hidden by default, shown by JS filter) -->
+<div id="no-results" class="text-center py-5 d-none">
+    <i class="bi bi-search display-1 text-muted opacity-25"></i>
+    <p class="text-muted mt-3">No items match your search.</p>
+</div>
+
 <script>
     function filterGrid() {
-        const input = document.getElementById('grid-search');
-        const filter = input.value.toLowerCase();
-        const cards = document.getElementsByClassName('item-card-wrapper');
+        const query = document.getElementById('grid-search').value.toLowerCase();
+        const cards = document.querySelectorAll('.item-card');
+        let hasResults = false;
 
-        for (let i = 0; i < cards.length; i++) {
-            const name = cards[i].getAttribute('data-name');
-            const sku = cards[i].getAttribute('data-sku');
-            const barcode = cards[i].getAttribute('data-barcode') || "";
-
-            if (name.includes(filter) || sku.includes(filter) || barcode.includes(filter)) {
-                cards[i].classList.remove('d-none');
+        cards.forEach(card => {
+            const text = card.getAttribute('data-search');
+            if (text.includes(query)) {
+                card.classList.remove('d-none');
+                hasResults = true;
             } else {
-                cards[i].classList.add('d-none');
+                card.classList.add('d-none');
             }
-        }
+        });
+
+        document.getElementById('no-results').classList.toggle('d-none', hasResults);
     }
+
+    // Attach listener if input exists
+    document.addEventListener('DOMContentLoaded', () => {
+        const input = document.getElementById('grid-search');
+        if (input) input.addEventListener('keyup', filterGrid);
+    });
 </script>
+
+<style>
+    .item-hover-effect {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .item-hover-effect:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !important;
+    }
+</style>
 {% endmacro %}
