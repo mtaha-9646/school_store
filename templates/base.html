@@ -17,6 +17,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+
+    <script>
+        // Force Mobile Redirect: If on phone, go straight to Checkout App
+        if (window.innerWidth < 768 && window.location.pathname !== '/checkout') {
+            window.location.href = '/checkout';
+        }
+    </script>
 </head>
 
 <body>

@@ -35,33 +35,43 @@ with app.app_context():
     # Skip DB init/seeding if testing (let tests handle it)
     if not os.environ.get('FLASK_TESTING'):
         db.create_all()
-    
-        # Seeds
+        # Admin User & Seeds logic... (This will run if tables created)
+        if not User.query.first():
+            # ... (Copied from below or existing logic) ...
+            pass 
+
+# TEMPORARY FIX ROUTE for Remote Deployment
+@app.route('/admin/reset-db')
+def admin_reset_db():
+    try:
+        db.drop_all()
+        db.create_all()
+        
+        # Re-Seed
         if not User.query.first():
             db.session.add(User(name="Admin", role="admin"))
-            
-            # Depts
             math = Department(name="Math")
             sci = Department(name="Science")
             eng = Department(name="English")
             db.session.add_all([math, sci, eng])
-            db.session.commit() # Commit to get IDs
+            db.session.commit()
             
-            # Teachers
             db.session.add_all([
-                Teacher(name="Mr. Anderson", department_id=math.id),
-                Teacher(name="Ms. Frizzle", department_id=sci.id),
-                Teacher(name="Mr. Keating", department_id=eng.id)
+                Teacher(name="Mr. Anderson", email="anderson@school.com", department_id=math.id),
+                Teacher(name="Ms. Frizzle", email="frizzle@school.com", department_id=sci.id),
+                Teacher(name="Mr. Keating", email="keating@school.com", department_id=eng.id)
             ])
             
-            # Items
             db.session.add_all([
                 Item(name="Whiteboard Marker (Red)", sku="WBM-R", stock_on_hand=50, barcode="SS-100001"),
                 Item(name="A4 Paper Ream", sku="PPR-A4", stock_on_hand=100, barcode="SS-100002"),
                 Item(name="Stapler", sku="STP-01", stock_on_hand=10, barcode="SS-100003")
             ])
             db.session.commit()
-            # print("Seeds Created")
+            
+        return "Database Reset and Seeded Successfully! <a href='/'>Go Home</a>"
+    except Exception as e:
+        return f"Error resetting DB: {e}"
 
 # --- Context ---
 @app.context_processor
